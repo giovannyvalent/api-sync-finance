@@ -101,6 +101,28 @@ Rodar o mesmo período dez vezes não duplica nada no Conta Azul.
 invocações — se o `refresh_token` ficasse em RAM, a integração morreria na
 primeira expiração. Por isso a tabela `contaazul_token`.
 
+**Não existe token direto / chave de API no Conta Azul.** A API v2 só aceita
+OAuth2 Authorization Code — não há `client_credentials`. O login manual é uma
+vez por empresa; depois a renovação é automática.
+
+**O `refresh_token` do Conta Azul é de uso único.** Pela doc oficial: o
+`access_token` vale 1 hora e o `refresh_token` vale 2 semanas, *mas só pode ser
+usado uma vez*. Cada renovação devolve um par novo que precisa substituir o
+anterior — guardar o antigo deixa a integração morta na renovação seguinte, com
+um `invalid_grant` genérico difícil de diagnosticar. Consequências no código:
+
+- a renovação **exige** `refresh_token` novo na resposta e falha com mensagem
+  explícita se ele não vier;
+- duas invocações simultâneas podem competir pela renovação; quem perde a
+  corrida relê o banco e usa o par que a outra gravou, em vez de quebrar;
+- o cron renova o token **antes** de olhar o Projuris, para que um período longo
+  sem lançamento nenhum não deixe o `refresh_token` vencer por inatividade;
+- `GET /health` mostra `dias_desde_ultima_renovacao` e liga
+  `risco_expiracao_refresh` a partir de 10 dias.
+
+Se a integração ficar parada mais de 2 semanas, não tem jeito: é preciso refazer
+`/oauth/contaazul/start` no navegador.
+
 **Só receita vira conta a receber.** Lançamentos classificados como despesa são
 registrados com `status_sync = 'ignorado'` e o motivo — aparecem no analytics,
 mas não vão para o Conta Azul. Contas a pagar seriam outro endpoint.

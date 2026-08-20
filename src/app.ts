@@ -6,6 +6,8 @@ import { syncRouter } from './routes/sync.js'
 import { analyticsRouter } from './routes/analytics.js'
 import { exigirApiKey, exigirCronSecret } from './routes/auth-mw.js'
 import { rodarSync } from './sync/runner.js'
+import { getContaAzulToken } from './contaazul/auth.js'
+import { lerToken } from './db/repo.js'
 
 export const app = express()
 
@@ -35,14 +37,38 @@ app.get('/', (_req, res) => {
   })
 })
 
-app.get('/health', (_req, res) => {
+app.get('/health', async (_req, res) => {
   const faltando = assertConfig()
+
+  // Estado do token do Conta Azul: o refresh_token vale 2 semanas e é de uso
+  // único, então saber quanto falta evita descobrir o vencimento pelo erro.
+  let contaazul: Record<string, unknown> = { autorizado: false }
+  try {
+    const row = await lerToken(config.contaazul.companyId)
+    if (row) {
+      const expiraEm = new Date(row.expires_at).getTime()
+      const atualizadoEm = new Date((row as { atualizado_em?: string }).atualizado_em ?? row.expires_at).getTime()
+      const diasDesdeRenovacao = (Date.now() - atualizadoEm) / 86_400_000
+      contaazul = {
+        autorizado: true,
+        access_token_expira_em: row.expires_at,
+        access_token_valido: expiraEm > Date.now(),
+        dias_desde_ultima_renovacao: Number(diasDesdeRenovacao.toFixed(1)),
+        // refresh_token morre com 14 dias sem uso
+        risco_expiracao_refresh: diasDesdeRenovacao > 10,
+      }
+    }
+  } catch (e) {
+    contaazul = { autorizado: false, erro: e instanceof Error ? e.message : String(e) }
+  }
+
   res.status(faltando.length ? 503 : 200).json({
     ok: faltando.length === 0,
     env_faltando: faltando,
     projuris_lancamentos_path: config.projuris.lancamentosPath,
     contaazul_company_id: config.contaazul.companyId,
     dry_run_global: config.sync.dryRunGlobal,
+    contaazul,
   })
 })
 
@@ -59,6 +85,15 @@ app.use('/analytics', exigirApiKey, analyticsRouter)
 
 app.get('/cron/sync', exigirCronSecret, async (_req, res) => {
   try {
+    // Keep-alive do OAuth: o refresh_token do Conta Azul expira em 2 semanas
+    // sem uso. Um período longo sem lançamento nenhum não pode derrubar a
+    // autorização, então renovamos antes de olhar o Projuris.
+    try {
+      await getContaAzulToken()
+    } catch (e) {
+      logger.warn('cron', `keep-alive do token falhou: ${e instanceof Error ? e.message : String(e)}`)
+    }
+
     const resultado = await rodarSync({ origem: 'cron' })
     res.json({
       ok: true,
