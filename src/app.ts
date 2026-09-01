@@ -2,6 +2,7 @@ import express from 'express'
 import { assertConfig, config } from './config.js'
 import { logger } from './logger.js'
 import { oauthRouter } from './routes/oauth.js'
+import { painelRouter } from './routes/painel.js'
 import { syncRouter } from './routes/sync.js'
 import { analyticsRouter } from './routes/analytics.js'
 import { exigirApiKey, exigirCronSecret } from './routes/auth-mw.js'
@@ -25,6 +26,7 @@ app.get('/', (_req, res) => {
   res.json({
     servico: 'projuris-contaazul-sync',
     descricao: 'Lançamentos financeiros do Projuris → contas a receber no Conta Azul',
+    painel: 'GET /painel',
     rotas: {
       saude: 'GET /health',
       autorizar_contaazul: 'GET /oauth/contaazul/start',
@@ -75,6 +77,7 @@ app.get('/health', async (_req, res) => {
 // --- OAuth (público: o usuário precisa abrir no navegador) ------------------
 
 app.use('/oauth', oauthRouter)
+app.use('/painel', painelRouter)
 
 // --- operação (protegida por SYNC_API_KEY) ---------------------------------
 

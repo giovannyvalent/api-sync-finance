@@ -11,6 +11,27 @@ Projuris ADV ──► normalização ──► Conta Azul (contas a receber)
                 (idempotência + analytics)
 ```
 
+## Painel
+
+`GET /painel` — tela de operação servida pelo próprio Express, na mesma URL da
+API. Não há front separado de propósito: um segundo deploy traria CORS, outra
+autenticação e mais uma coisa para manter, sem ganho para uma tela interna.
+
+O painel cobre o ciclo inteiro sem terminal:
+
+- **Situação** — o que falta configurar, se o Conta Azul está autorizado e há
+  quantos dias o token foi renovado (o `refresh_token` morre com 14 dias parado)
+- **Executar** — período por vencimento, alternando entre *Simular* e
+  *Executar de verdade*, com o resultado item a item
+- **Analytics** — valor sincronizado, série por mês e ranking de clientes
+- **Execuções e erros** — histórico dos runs e lançamentos que falharam
+
+A página é pública (não carrega segredo), mas todo dado que ela busca exige a
+`SYNC_API_KEY`, digitada uma vez e guardada no `localStorage` do navegador.
+
+O modo **Simular** é o padrão do seletor: quem abre o painel pela primeira vez
+não escreve no Conta Azul por acidente.
+
 ## O endpoint financeiro do Projuris
 
 Documentação real: **https://docs.projurisadv.com.br/resource_Financeiro.html**
@@ -87,6 +108,7 @@ Quando estiver certo, tire `SYNC_DRY_RUN=true` e use `/sync/run`.
 
 | Rota | Proteção | O que faz |
 |---|---|---|
+| `GET /painel` | — | Painel de operação (dados exigem a chave) |
 | `GET /health` | — | Diz quais env vars faltam |
 | `GET /oauth/contaazul/start` | — | Inicia o OAuth do Conta Azul |
 | `GET /oauth/contaazul/callback` | — | Recebe o `code` e salva os tokens |
@@ -158,5 +180,5 @@ então dá pra reconstruir análises novas sem voltar nas APIs de origem.
 ```bash
 npm install
 cp .env.example .env
-npm run dev     # http://localhost:3000
+npm run dev     # painel em http://localhost:3000/painel
 ```

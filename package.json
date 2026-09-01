@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Integracao: lancamentos financeiros do Projuris -> contas a receber no Conta Azul",
   "scripts": {
-    "dev": "tsx watch src/server.ts",
+    "dev": "tsx watch --env-file=.env src/server.ts",
     "build": "tsc",
     "typecheck": "tsc --noEmit"
   },
