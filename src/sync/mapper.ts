@@ -1,8 +1,8 @@
-import type { ProjurisLancamento } from '../projuris/client.js'
+import type { ReceitaDespesa } from '../projuris/client.js'
 
 /**
- * Formato interno normalizado. O resto do sistema só conhece este shape —
- * se o Projuris mudar nomes de campo, só este arquivo muda.
+ * Formato interno normalizado. Escrito contra o schema real de
+ * receitaDespesaConsultaResultadoWs (POST /receita-despesa/consulta).
  */
 export type Lancamento = {
   id: string
@@ -18,25 +18,8 @@ export type Lancamento = {
   processo?: string
   centroCusto?: string
   categoria?: string
-  bruto: ProjurisLancamento
-}
-
-/** Lê o primeiro caminho que existir. Aceita "a.b.c" para campos aninhados. */
-function pick(obj: unknown, caminhos: string[]): unknown {
-  for (const caminho of caminhos) {
-    let atual: unknown = obj
-    let ok = true
-    for (const parte of caminho.split('.')) {
-      if (atual && typeof atual === 'object' && parte in (atual as Record<string, unknown>)) {
-        atual = (atual as Record<string, unknown>)[parte]
-      } else {
-        ok = false
-        break
-      }
-    }
-    if (ok && atual !== null && atual !== undefined && atual !== '') return atual
-  }
-  return undefined
+  numeroDocumento?: string
+  bruto: ReceitaDespesa
 }
 
 function texto(v: unknown): string | undefined {
@@ -55,10 +38,24 @@ export function paraNumero(v: unknown): number {
   return Number(s)
 }
 
-/** Normaliza para yyyy-mm-dd. Aceita ISO, dd/mm/aaaa e dd-mm-aaaa. */
+/**
+ * Normaliza para yyyy-mm-dd.
+ * O Projuris devolve datas como epoch em MILISSEGUNDOS (tipo long); as demais
+ * formas ficam aceitas para não quebrar em campos que venham como string.
+ */
 export function paraDataIso(v: unknown): string | undefined {
-  const s = texto(v)
-  if (!s) return undefined
+  if (v === null || v === undefined || v === '') return undefined
+
+  if (typeof v === 'number') {
+    // segundos vs milissegundos: epoch em segundos não passa de ~1e10
+    const ms = v < 1e11 ? v * 1000 : v
+    const d = new Date(ms)
+    if (Number.isNaN(d.getTime())) return undefined
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  }
+
+  const s = String(v).trim()
+  if (/^\d{10,}$/.test(s)) return paraDataIso(Number(s))
 
   const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(s)
   if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`
@@ -70,80 +67,47 @@ export function paraDataIso(v: unknown): string | undefined {
   return Number.isNaN(d.getTime()) ? undefined : d.toISOString().slice(0, 10)
 }
 
-/**
- * Converte um lançamento cru do Projuris no formato interno.
- * Os arrays de candidatos cobrem as variações de nomenclatura mais prováveis;
- * confirme contra o payload real e enxugue depois da primeira execução.
- */
-export function normalizar(bruto: ProjurisLancamento): Lancamento | null {
-  const id = texto(
-    pick(bruto, ['id', 'codigo', 'idLancamento', 'lancamentoId', 'seqLancamento', 'chave']),
-  )
+/** Converte um item da consulta do Projuris no formato interno. */
+export function normalizar(bruto: ReceitaDespesa): Lancamento | null {
+  const id = texto(bruto.codigoReceitaDespesa ?? bruto.codigoLancamento)
   if (!id) return null
 
-  const valor = paraNumero(
-    pick(bruto, ['valor', 'valorLancamento', 'valorTotal', 'valorOriginal', 'vlLancamento']),
-  )
-
-  const dataVencimento = paraDataIso(
-    pick(bruto, ['dataVencimento', 'vencimento', 'dtVencimento', 'data_vencimento', 'dataPrevista']),
-  )
+  // "data" é o vencimento quando a consulta usa dataFiltro=VENCIMENTO
+  const dataVencimento = paraDataIso(bruto.data)
   if (!dataVencimento) return null
 
-  const tipoBruto = (texto(pick(bruto, ['tipo', 'tipoLancamento', 'natureza', 'especie'])) ?? '')
-    .toUpperCase()
-  const tipo: Lancamento['tipo'] =
-    tipoBruto.includes('DESPES') || tipoBruto.includes('PAGAR') || tipoBruto.includes('SAIDA')
-      ? 'DESPESA'
-      : 'RECEITA'
+  // valorReal reflete acréscimos/descontos; cai para valor quando ausente
+  const valor = paraNumero(bruto.valorReal ?? bruto.valor)
 
-  const clienteNome =
-    texto(
-      pick(bruto, [
-        'cliente.nome',
-        'pessoa.nome',
-        'nomeCliente',
-        'cliente',
-        'clienteNome',
-        'favorecido.nome',
-        'favorecido',
-        'nomePessoa',
-      ]),
-    ) ?? 'Cliente não identificado'
+  const natureza = (texto(bruto.tipoReceitaDespesa) ?? '').toUpperCase()
+  const tipo: Lancamento['tipo'] = natureza.includes('DESPES') ? 'DESPESA' : 'RECEITA'
+
+  const numeroDocumento = texto(bruto.numeroDocumento)
+  const planoConta = texto(bruto.planoConta)
+
+  // A consulta não traz descrição livre: o rótulo útil é plano de contas +
+  // número do documento. O identificador do módulo dá o vínculo (processo etc).
+  const descricao =
+    [planoConta, numeroDocumento ? `Doc. ${numeroDocumento}` : undefined]
+      .filter(Boolean)
+      .join(' — ') || `Lançamento Projuris ${id}`
 
   return {
     id,
-    descricao:
-      texto(pick(bruto, ['descricao', 'historico', 'observacao', 'titulo', 'complemento'])) ??
-      `Lançamento Projuris ${id}`,
+    descricao,
     valor,
     dataVencimento,
-    dataCompetencia: paraDataIso(
-      pick(bruto, ['dataCompetencia', 'dataLancamento', 'dtLancamento', 'dataEmissao']),
-    ),
+    dataCompetencia: paraDataIso(bruto.dataExercicio),
     tipo,
-    status: texto(pick(bruto, ['status', 'situacao', 'statusLancamento', 'situacaoLancamento'])),
-    clienteNome,
-    clienteDocumento: texto(
-      pick(bruto, [
-        'cliente.cpfCnpj',
-        'cliente.documento',
-        'pessoa.cpfCnpj',
-        'cpfCnpj',
-        'documento',
-        'cnpjCpf',
-        'cliente.cnpj',
-        'cliente.cpf',
-      ]),
-    ),
-    clienteEmail: texto(pick(bruto, ['cliente.email', 'pessoa.email', 'email', 'emailCliente'])),
-    processo: texto(
-      pick(bruto, ['processo.numero', 'numeroProcesso', 'processo', 'pasta', 'numeroPasta']),
-    ),
-    centroCusto: texto(pick(bruto, ['centroCusto.nome', 'centroCusto', 'centro_custo'])),
-    categoria: texto(
-      pick(bruto, ['categoria.nome', 'categoria', 'planoContas.nome', 'planoContas', 'classificacao']),
-    ),
+    status: texto(bruto.situacao),
+    clienteNome: texto(bruto.nomeFavorecido) ?? 'Cliente não identificado',
+    // a consulta paginada não devolve CPF/CNPJ do favorecido
+    clienteDocumento: undefined,
+    clienteEmail: undefined,
+    processo: texto(bruto.identificador ?? bruto.identificadorModulo),
+    centroCusto: texto(bruto.unidadeOrganizacional?.valor),
+    categoria: planoConta,
+    numeroDocumento,
     bruto,
   }
 }
@@ -151,7 +115,7 @@ export function normalizar(bruto: ProjurisLancamento): Lancamento | null {
 /** Descrição enviada ao Conta Azul — carrega a origem para rastreabilidade. */
 export function descricaoContaAzul(l: Lancamento): string {
   const partes = [l.descricao]
-  if (l.processo) partes.push(`Proc. ${l.processo}`)
+  if (l.processo) partes.push(l.processo)
   partes.push(`[Projuris #${l.id}]`)
   return partes.join(' — ').slice(0, 250)
 }

@@ -1,6 +1,6 @@
 import { config } from '../config.js'
 import { logger } from '../logger.js'
-import { buscarLancamentos } from '../projuris/client.js'
+import { buscarLancamentos, buscarPessoa, extrairDocumento } from '../projuris/client.js'
 import { criarContaReceber, garantirPessoa, montarBodyContaReceber } from '../contaazul/client.js'
 import { descricaoContaAzul, normalizar, type Lancamento } from './mapper.js'
 import {
@@ -31,6 +31,12 @@ export type ResultadoSync = {
   total_erros: number
   duracao_ms: number
   itens: ResultadoItem[]
+}
+
+function texto(v: unknown): string | undefined {
+  if (v === null || v === undefined || v === '') return undefined
+  if (typeof v === 'number') return String(v)
+  return typeof v === 'string' ? v.trim() || undefined : undefined
 }
 
 export function janelaPadrao(dias = config.sync.janelaDias): { inicio: string; fim: string } {
@@ -95,6 +101,26 @@ export async function rodarSync(opcoes: {
   const descartadosNaLeitura = brutos.length - lancamentos.length
   if (descartadosNaLeitura > 0) {
     logger.warn('sync', `${descartadosNaLeitura} registro(s) sem id ou sem vencimento — descartados`)
+  }
+
+  // A consulta de receita-despesa devolve só o nome do favorecido. Casar
+  // cliente por nome no Conta Azul cria duplicata ("Acme Ltda" x "ACME LTDA"),
+  // então buscamos o CPF/CNPJ no cadastro. Cache por execução: vários
+  // lançamentos costumam apontar para o mesmo favorecido.
+  if (config.projuris.enriquecerFavorecido) {
+    const cache = new Map<string, string | undefined>()
+    for (const l of lancamentos) {
+      if (l.clienteDocumento) continue
+      const codigo = texto(l.bruto.codigoFavorecido ?? l.bruto.codigoPessoa)
+      if (!codigo) continue
+
+      if (!cache.has(codigo)) {
+        cache.set(codigo, extrairDocumento(await buscarPessoa(codigo)))
+      }
+      l.clienteDocumento = cache.get(codigo)
+    }
+    const comDoc = lancamentos.filter((l) => l.clienteDocumento).length
+    logger.info('sync', `favorecidos com CPF/CNPJ: ${comDoc}/${lancamentos.length}`)
   }
 
   const jaFeitos = await idsJaSincronizados(lancamentos.map((l) => l.id))

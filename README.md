@@ -11,28 +11,37 @@ Projuris ADV ──► normalização ──► Conta Azul (contas a receber)
                 (idempotência + analytics)
 ```
 
-## ⚠️ Antes de tudo: confirmar o endpoint financeiro do Projuris
+## O endpoint financeiro do Projuris
 
-A documentação pública do Projuris ADV **não lista o módulo financeiro**. Os
-endpoints documentados são: Andamentos, Arquivos, Assunto CNJ, Atendimentos,
-Auditoria, Captura de Processos, Classe CNJ, Comentários, Consultas básicas,
-Contratos, Justiça e Órgãos, Login, Pessoas, Processos (+ Envolvidos, Pedidos,
-Relacionados), Tarefas e Usuários.
+Documentação real: **https://docs.projurisadv.com.br/resource_Financeiro.html**
+(a Central de Ajuda não cobre o módulo Financeiro; o OpenAPI cobre).
 
-A autenticação está confirmada pela doc oficial. O caminho da listagem de
-lançamentos **não está** — por isso ele é uma env var (`PROJURIS_LANCAMENTOS_PATH`),
-não uma constante no código. Peça ao suporte Projuris a rota do financeiro e
-ajuste a variável; nada de código precisa mudar.
+O endpoint usado é **`POST /adv-service/receita-despesa/consulta`**. Quatro
+detalhes que não dá para adivinhar e estão implementados:
 
-Para descobrir o formato real da resposta:
+- os **filtros vão no corpo**, e paginação/ordenação na query (`pagina`,
+  `quan-registros`, `executar-contagem`);
+- as **datas são epoch em milissegundos** (tipo `long`), não string;
+- o campo de início do período chama-se **`dataPeridoInicio`** — o typo
+  ("Perido") está no schema do Projuris, não aqui;
+- `dataFiltro: "VENCIMENTO"` faz o período valer sobre o vencimento, e
+  `planoContaNatureza: "RECEITA"` filtra no servidor — despesa não deve virar
+  conta a receber.
 
-```bash
-curl -H "x-api-key: $SYNC_API_KEY" \
-  "https://SEU-APP.vercel.app/sync/projuris-bruto?path=/financeiro/lancamentos&dataInicio=2026-01-01&dataFim=2026-12-31"
-```
+A resposta vem como `{ totalRegistros, totalValor, receitaDespesaConsultaResultadoWs[] }`.
 
-Ele devolve a resposta crua **e** como o mapeador interpretou o primeiro
-registro — dá pra fechar o mapeamento em uma rodada.
+### Limitação conhecida: favorecido sem CPF/CNPJ
+
+A consulta paginada devolve apenas `nomeFavorecido`, sem documento. Casar
+cliente por nome num sistema contábil produz duplicata ("Acme Ltda" x
+"ACME LTDA"). Por isso, quando o item traz `codigoFavorecido`, o sync busca o
+cadastro em `GET /adv-service/pessoa/{codigo}` e usa o CPF/CNPJ para casar no
+Conta Azul — com cache por execução, já que vários lançamentos costumam apontar
+para o mesmo favorecido. Desligue com `PROJURIS_ENRIQUECER_FAVORECIDO=false`.
+
+Se `codigoFavorecido` não vier na resposta real, o casamento cai para nome e o
+log mostra `favorecidos com CPF/CNPJ: 0/N` — sinal de que vale usar
+`GET /receita-despesa/{codigo}` para buscar o vínculo.
 
 ## Setup
 
@@ -127,10 +136,10 @@ Se a integração ficar parada mais de 2 semanas, não tem jeito: é preciso ref
 registrados com `status_sync = 'ignorado'` e o motivo — aparecem no analytics,
 mas não vão para o Conta Azul. Contas a pagar seriam outro endpoint.
 
-**Mapeamento tolerante.** `src/sync/mapper.ts` tenta várias grafias por campo
-(`valor`, `valorTotal`, `vlLancamento`…) porque o payload real do Projuris ainda
-não foi visto. Depois da primeira execução real, enxugue as listas para os nomes
-que de fato vieram.
+**Mapeamento contra o schema real.** `src/sync/mapper.ts` lê os campos de
+`receitaDespesaConsultaResultadoWs` pelo nome documentado. Usa `valorReal` (que
+reflete acréscimos e descontos) e cai para `valor` quando ausente; converte
+epoch em milissegundos para `yyyy-mm-dd`.
 
 **Erro não derruba o lote.** Cada lançamento é tratado num try/catch próprio;
 falha individual vira `status_sync = 'erro'` com a mensagem e aparece em

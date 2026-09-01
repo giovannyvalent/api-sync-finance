@@ -23,15 +23,18 @@ export const config = {
     // formato obrigatório: USUARIO$$DOMINIO_ESCRITORIO
     username: env('PROJURIS_USERNAME'),
     password: env('PROJURIS_PASSWORD'),
-    // rota que lista lançamentos financeiros — CONFIRMAR com o suporte Projuris
-    lancamentosPath: env('PROJURIS_LANCAMENTOS_PATH', '/financeiro/lancamentos'),
-    // nome dos parâmetros de filtro de data na query string
-    paramDataInicio: env('PROJURIS_PARAM_DATA_INICIO', 'dataInicio'),
-    paramDataFim: env('PROJURIS_PARAM_DATA_FIM', 'dataFim'),
-    paramPagina: env('PROJURIS_PARAM_PAGINA', 'pagina'),
-    paramTamanhoPagina: env('PROJURIS_PARAM_TAMANHO_PAGINA', 'quantidadeRegistros'),
+    // POST /receita-despesa/consulta — módulo Financeiro
+    // docs.projurisadv.com.br/resource_Financeiro.html
+    lancamentosPath: env('PROJURIS_LANCAMENTOS_PATH', '/receita-despesa/consulta'),
+    // a que data o período se aplica: VENCIMENTO é o que interessa aqui
+    dataFiltro: env('PROJURIS_DATA_FILTRO', 'VENCIMENTO'),
+    // enum do Projuris: RECEITA | DESPESA | TRANSFERENCIA (vazio = sem filtro)
+    planoContaNatureza: env('PROJURIS_PLANO_CONTA_NATUREZA', 'RECEITA'),
     tamanhoPagina: Number(env('PROJURIS_TAMANHO_PAGINA', '100')),
     maxPaginas: Number(env('PROJURIS_MAX_PAGINAS', '50')),
+    // busca o CPF/CNPJ do favorecido antes de casar o cliente no Conta Azul.
+    // Custa 1 request por favorecido novo, mas evita cliente duplicado.
+    enriquecerFavorecido: env('PROJURIS_ENRIQUECER_FAVORECIDO', 'true') === 'true',
   },
 
   contaazul: {
