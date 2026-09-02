@@ -108,8 +108,8 @@ const HTML = String.raw`<!doctype html>
 </div>
 
 <div class="card">
-  <h2>Situacao da integracao</h2>
-  <div id="saude" class="muted">carregando...</div>
+  <h2>Situação da integração</h2>
+  <div id="saude" class="muted">carregando…</div>
   <div class="row" style="margin-top:12px">
     <a href="/oauth/contaazul/start"><button class="ghost">Autorizar Conta Azul</button></a>
     <button class="ghost" id="btnRefs">Ver contas e categorias</button>
@@ -119,14 +119,14 @@ const HTML = String.raw`<!doctype html>
 </div>
 
 <div class="card">
-  <h2>Executar sincronizacao</h2>
+  <h2>Executar sincronização</h2>
   <div class="row">
     <div><label for="ini">De (vencimento)</label><input id="ini" type="date"></div>
-    <div><label for="fim">Ate</label><input id="fim" type="date"></div>
+    <div><label for="fim">Até</label><input id="fim" type="date"></div>
     <div>
       <label for="modo">Modo</label>
       <select id="modo">
-        <option value="preview">Simular (nao escreve)</option>
+        <option value="preview">Simular (não escreve)</option>
         <option value="run">Executar de verdade</option>
       </select>
     </div>
@@ -135,30 +135,30 @@ const HTML = String.raw`<!doctype html>
   <div class="msg" id="msgSync"></div>
   <div id="resumoSync" class="grid" style="margin-top:14px"></div>
   <div class="scroll"><table id="tblSync" hidden>
-    <thead><tr><th>Projuris</th><th>Descricao</th><th class="num">Valor</th>
-      <th>Situacao</th><th>Motivo</th></tr></thead><tbody></tbody></table></div>
+    <thead><tr><th>Projuris</th><th>Descrição</th><th class="num">Valor</th>
+      <th>Situação</th><th>Motivo</th></tr></thead><tbody></tbody></table></div>
 </div>
 
 <div class="card">
   <h2>Analytics</h2>
   <div class="row" style="margin-bottom:12px">
     <div><label for="aIni">De</label><input id="aIni" type="date"></div>
-    <div><label for="aFim">Ate</label><input id="aFim" type="date"></div>
+    <div><label for="aFim">Até</label><input id="aFim" type="date"></div>
     <button class="ghost" id="btnAnalytics">Atualizar</button>
   </div>
   <div id="aResumo" class="grid"></div>
   <div id="aMes" style="margin-top:18px"></div>
   <div class="scroll" style="margin-top:18px"><table id="tblCli" hidden>
-    <thead><tr><th>Cliente</th><th>Documento</th><th class="num">Lancamentos</th>
+    <thead><tr><th>Cliente</th><th>Documento</th><th class="num">Lançamentos</th>
       <th class="num">Valor</th></tr></thead><tbody></tbody></table></div>
 </div>
 
 <div class="card">
-  <h2>Execucoes e erros</h2>
+  <h2>Execuções e erros</h2>
   <button class="ghost" id="btnExec">Atualizar</button>
   <div class="scroll" style="margin-top:12px"><table id="tblExec" hidden>
-    <thead><tr><th>Quando</th><th>Origem</th><th>Periodo</th><th class="num">Lidos</th>
-      <th class="num">Criados</th><th class="num">Erros</th><th class="num">Duracao</th>
+    <thead><tr><th>Quando</th><th>Origem</th><th>Período</th><th class="num">Lidos</th>
+      <th class="num">Criados</th><th class="num">Erros</th><th class="num">Duração</th>
       </tr></thead><tbody></tbody></table></div>
   <div id="errosAbertos" style="margin-top:16px"></div>
 </div>
@@ -197,7 +197,7 @@ async function api(path, opts){
   var r = await fetch(path, { method: opts.method || 'GET', body: opts.body, headers: headers });
   var t = await r.text();
   var j = null;
-  if (t) { try { j = JSON.parse(t) } catch (e) { throw new Error('Resposta invalida: ' + t.slice(0,200)) } }
+  if (t) { try { j = JSON.parse(t) } catch (e) { throw new Error('Resposta inválida: ' + t.slice(0,200)) } }
   if (!r.ok) throw new Error((j && j.erro) || ('HTTP ' + r.status));
   return j;
 }
@@ -229,9 +229,9 @@ async function carregarSaude(){
         ? '<span class="pill warn">token: renovar</span>'
         : '<span class="pill ok">Conta Azul ok</span>');
     } else {
-      pills.push('<span class="pill err">Conta Azul nao autorizado</span>');
+      pills.push('<span class="pill err">Conta Azul não autorizado</span>');
     }
-    if (h.dry_run_global) pills.push('<span class="pill warn">modo simulacao</span>');
+    if (h.dry_run_global) pills.push('<span class="pill warn">modo simulação</span>');
     $('#statusPills').innerHTML = pills.join(' ');
 
     var txt = '';
@@ -240,7 +240,7 @@ async function carregarSaude(){
       txt += '<div>Token do Conta Azul renovado ha <b>' + ca.dias_desde_ultima_renovacao +
              ' dia(s)</b>. O refresh_token vence com 14 dias sem uso.</div>';
     } else {
-      txt += '<div>Conta Azul ainda nao autorizado - use o botao abaixo.</div>';
+      txt += '<div>Conta Azul ainda não autorizado — use o botão abaixo.</div>';
     }
     txt += '<div class="muted" style="margin-top:6px">Endpoint Projuris: <code>' +
            esc(h.projuris_lancamentos_path) + '</code></div>';
@@ -266,7 +266,7 @@ $('#btnRefs').onclick = async function(){
 
 $('#btnSync').onclick = async function(){
   var b = $('#btnSync');
-  b.disabled = true; b.textContent = 'Rodando...';
+  b.disabled = true; b.textContent = 'Rodando…';
   msg('#msgSync', '');
   try {
     var rota = $('#modo').value === 'run' ? '/sync/run' : '/sync/preview';
@@ -294,8 +294,8 @@ $('#btnSync').onclick = async function(){
     }
     $('#tblSync').hidden = itens.length === 0;
     msg('#msgSync', r.dry_run
-      ? 'Simulacao concluida - nada foi escrito no Conta Azul.'
-      : 'Sincronizacao concluida.', 'i');
+      ? 'Simulação concluída — nada foi escrito no Conta Azul.'
+      : 'Sincronização concluída.', 'i');
     carregarExec();
   } catch (e) {
     msg('#msgSync', e.message, 'e');
@@ -313,7 +313,7 @@ async function carregarAnalytics(){
     ]);
     var res = out[0], mes = out[1], cli = out[2];
 
-    var stats = [['Lancamentos', res.total_lancamentos],
+    var stats = [['Lançamentos', res.total_lancamentos],
                  ['Criados no Conta Azul', res.quantidade_criada],
                  ['Valor sincronizado', brl(res.valor_total_criado)]];
     $('#aResumo').innerHTML = stats.map(function(s){
@@ -333,7 +333,7 @@ async function carregarAnalytics(){
           return '<span>' + x.mes.slice(5) + '/' + x.mes.slice(2,4) + '</span>';
         }).join('') + '</div>';
     } else {
-      $('#aMes').innerHTML = '<div class="muted">Sem dados no periodo.</div>';
+      $('#aMes').innerHTML = '<div class="muted">Sem dados no período.</div>';
     }
 
     var tb = $('#tblCli').querySelector('tbody');
@@ -363,7 +363,7 @@ async function carregarExec(){
       var e = ex[i];
       tb.insertAdjacentHTML('beforeend',
         '<tr><td>' + new Date(e.criado_em).toLocaleString('pt-BR') + '</td><td>' + esc(e.origem) +
-        (e.dry_run ? ' <span class="pill warn">simulacao</span>' : '') +
+        (e.dry_run ? ' <span class="pill warn">simulação</span>' : '') +
         '</td><td class="muted">' + e.data_inicio + ' a ' + e.data_fim +
         '</td><td class="num">' + e.total_lidos + '</td><td class="num">' + e.total_criados +
         '</td><td class="num">' + e.total_erros + '</td><td class="num">' +
@@ -375,7 +375,7 @@ async function carregarExec(){
     if (er.length) {
       $('#errosAbertos').innerHTML =
         '<div class="pill err">' + er.length + ' lancamento(s) com erro</div>' +
-        '<div class="scroll"><table><thead><tr><th>Projuris</th><th>Descricao</th>' +
+        '<div class="scroll"><table><thead><tr><th>Projuris</th><th>Descrição</th>' +
         '<th class="num">Valor</th><th>Erro</th></tr></thead><tbody>' +
         er.map(function(x){
           return '<tr><td>#' + esc(x.projuris_id) + '</td><td>' + esc(x.descricao) +

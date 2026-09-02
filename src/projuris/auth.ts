@@ -39,7 +39,21 @@ export async function getProjurisToken(): Promise<string> {
 
   const texto = await res.text()
   if (!res.ok) {
-    throw new Error(`Projuris auth ${res.status}: ${texto.slice(0, 400)}`)
+    // O gateway do Projuris costuma responder 400 com corpo vazio quando algum
+    // campo do form vem em branco ou o username está sem o "$$". Sem uma pista
+    // aqui, o operador fica olhando para um 400 mudo.
+    const pistas: string[] = []
+    if (!username) pistas.push('PROJURIS_USERNAME está vazio')
+    else if (!username.includes('$$'))
+      pistas.push(`PROJURIS_USERNAME ("${username}") não tem o separador "$$" — use USUARIO$$DOMINIO`)
+    if (!password) pistas.push('PROJURIS_PASSWORD está vazio')
+    if (!clientId) pistas.push('PROJURIS_CLIENT_ID está vazio')
+    if (!clientSecret) pistas.push('PROJURIS_CLIENT_SECRET está vazio')
+    if (res.status === 401) pistas.push('credenciais recusadas — confira usuário, senha e domínio')
+
+    const corpo = texto.trim() || '(resposta sem corpo)'
+    const sufixo = pistas.length ? ` | provável causa: ${pistas.join('; ')}` : ''
+    throw new Error(`Projuris auth ${res.status}: ${corpo.slice(0, 300)}${sufixo}`)
   }
 
   const json = JSON.parse(texto) as { access_token: string; expires_in?: number }
