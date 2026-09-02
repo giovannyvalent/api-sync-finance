@@ -13,11 +13,22 @@ Projuris ADV ──► normalização ──► Conta Azul (contas a receber)
 
 ## Telas
 
-`GET /analise` — **Análise do fluxo**: mostra a transformação registro a registro
+`GET /analise` — **Análise do fluxo**, com a marca do escritório no topo: mostra a transformação registro a registro
 (item cru do Projuris -> regra aplicada -> corpo do POST no Conta Azul), o funil
 da sincronização, o valor por mês de vencimento e a tabela completa. Abre em
 **modo demonstração**, com dados fictícios processados pelas mesmas regras do
 código real — dá para avaliar o mapeamento sem credencial e sem banco.
+
+Traz ainda a **esteira de transferências** (cápsulas saindo do Projuris, passando
+pelas regras e chegando ao Conta Azul, cada uma na sua pista) e a **curva ABC por
+categoria** — que é deliberadamente **dois gráficos com um eixo cada**, e não o
+Pareto clássico de barras + linha acumulada em dois eixos Y: naquele formato o
+alinhamento entre as escalas é arbitrário e o desenho sugere uma relação que não
+está nos dados.
+
+Tipografia: serifada só na marca, que é chrome; todo texto de gráfico fica no
+sans, com tabular-nums onde alinha. A animação respeita
+`prefers-reduced-motion` e tem controle de pausa.
 
 Paleta validada com o validador da skill de dataviz. Verde x vermelho como
 preenchimentos vizinhos foi descartado: ΔE 4.1 sob deuteranopia, ou seja,
