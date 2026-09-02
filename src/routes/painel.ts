@@ -91,6 +91,7 @@ const HTML = String.raw`<!doctype html>
   <h1>Automatizar Financeiro</h1>
   <span class="sub">Projuris para Conta Azul</span>
   <span style="flex:1"></span>
+  <a href="/analise"><button class="ghost">Análise do fluxo</button></a>
   <span id="statusPills"></span>
 </header>
 

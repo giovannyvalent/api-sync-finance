@@ -11,7 +11,19 @@ Projuris ADV ──► normalização ──► Conta Azul (contas a receber)
                 (idempotência + analytics)
 ```
 
-## Painel
+## Telas
+
+`GET /analise` — **Análise do fluxo**: mostra a transformação registro a registro
+(item cru do Projuris -> regra aplicada -> corpo do POST no Conta Azul), o funil
+da sincronização, o valor por mês de vencimento e a tabela completa. Abre em
+**modo demonstração**, com dados fictícios processados pelas mesmas regras do
+código real — dá para avaliar o mapeamento sem credencial e sem banco.
+
+Paleta validada com o validador da skill de dataviz. Verde x vermelho como
+preenchimentos vizinhos foi descartado: ΔE 4.1 sob deuteranopia, ou seja,
+indistinguíveis para parte dos leitores. O funil usa rampa ordinal de um hue só,
+a série temporal é uma série sem legenda, e status nunca é o único canal —
+sempre acompanha ícone e rótulo, com a tabela completa como alternativa textual.
 
 `GET /painel` — tela de operação servida pelo próprio Express, na mesma URL da
 API. Não há front separado de propósito: um segundo deploy traria CORS, outra
@@ -108,6 +120,7 @@ Quando estiver certo, tire `SYNC_DRY_RUN=true` e use `/sync/run`.
 
 | Rota | Proteção | O que faz |
 |---|---|---|
+| `GET /analise` | — | Análise do fluxo, com modo demonstração |
 | `GET /painel` | — | Painel de operação (dados exigem a chave) |
 | `GET /health` | — | Diz quais env vars faltam |
 | `GET /oauth/contaazul/start` | — | Inicia o OAuth do Conta Azul |
