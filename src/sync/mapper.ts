@@ -79,8 +79,11 @@ export function normalizar(bruto: ReceitaDespesa): Lancamento | null {
   // valorReal reflete acréscimos/descontos; cai para valor quando ausente
   const valor = paraNumero(bruto.valorReal ?? bruto.valor)
 
+  // Confirmado contra dados reais (2026-10-01): tipoReceitaDespesa vem
+  // ABREVIADO ("R"/"D"), não por extenso — a checagem original só pegava a
+  // palavra inteira "DESPESA" e nunca batia com o código real.
   const natureza = (texto(bruto.tipoReceitaDespesa) ?? '').toUpperCase()
-  const tipo: Lancamento['tipo'] = natureza.includes('DESPES') ? 'DESPESA' : 'RECEITA'
+  const tipo: Lancamento['tipo'] = natureza === 'D' || natureza.includes('DESPES') ? 'DESPESA' : 'RECEITA'
 
   const numeroDocumento = texto(bruto.numeroDocumento)
   const planoConta = texto(bruto.planoConta)
